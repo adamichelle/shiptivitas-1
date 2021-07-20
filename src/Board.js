@@ -20,6 +20,7 @@ export default class Board extends React.Component {
       inProgress: React.createRef(),
       complete: React.createRef(),
     }
+    this.drake = Dragula()
   }
   getClients() {
     return [
@@ -47,9 +48,53 @@ export default class Board extends React.Component {
       id: companyDetails[0],
       name: companyDetails[1],
       description: companyDetails[2],
-      status: companyDetails[3],
+      status: 'backlog',
     }));
   }
+
+  componentDidMount() {
+    for (const swimlane in this.swimlanes) {
+      if (Object.hasOwnProperty.call(this.swimlanes, swimlane)) {
+        const element = this.swimlanes[swimlane];
+        this.drake.containers.push(element.current)
+      }
+    }
+
+    this.drake.on('drop', (el, target, source, sibling) => {
+      const clientName = el.children[0].innerText
+      const newStatus = target.classList[1]
+      const oldStatus = source.classList[1]
+      let newStatusProperty = '';
+      let oldStatusProperty = ''
+
+      if(newStatus === 'in-progress') {
+        newStatusProperty = 'inProgress'
+      } else {
+        newStatusProperty = newStatus
+      }
+      if(oldStatus === 'in-progress') {
+        oldStatusProperty = 'inProgress'
+      } else {
+        oldStatusProperty = oldStatus
+      }
+
+      const newState = Object.assign({}, this.state);
+      const oldStatusList = this.state.clients[oldStatusProperty];
+      newState.clients[oldStatusProperty] = oldStatusList.filter(client => client.name !== clientName)
+      
+      const newStatusList = this.state.clients[newStatusProperty] 
+      const clientArray = oldStatusList.filter(client => client.name === clientName).map(client => {
+        client.status = newStatus;
+        return client;
+      })
+      
+      newState.clients[newStatusProperty] = [...newStatusList, ...clientArray]
+      this.drake.cancel(true)
+      this.setState(newState);
+
+    })
+  }
+
   renderSwimlane(name, clients, ref) {
     return (
       <Swimlane name={name} clients={clients} dragulaRef={ref}/>
